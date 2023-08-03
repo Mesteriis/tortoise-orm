@@ -21,9 +21,7 @@ from tortoise.fields import (
 def to_db_bool(
     self: BooleanField, value: Optional[Union[bool, int]], instance: Union[Type[Model], Model]
 ) -> Optional[int]:
-    if value is None:
-        return None
-    return int(bool(value))
+    return None if value is None else int(bool(value))
 
 
 def to_db_decimal(
@@ -50,9 +48,7 @@ def to_db_datetime(
             value = datetime.datetime.now(tz=timezone.get_default_timezone())
         setattr(instance, self.model_field_name, value)
         return value.isoformat(" ")
-    if isinstance(value, datetime.datetime):
-        return value.isoformat(" ")
-    return None
+    return value.isoformat(" ") if isinstance(value, datetime.datetime) else None
 
 
 def to_db_time(
@@ -68,9 +64,7 @@ def to_db_time(
             value = datetime.datetime.now(tz=timezone.get_default_timezone()).time()
         setattr(instance, self.model_field_name, value)
         return value.isoformat()
-    if isinstance(value, datetime.time):
-        return value.isoformat()
-    return None
+    return value.isoformat() if isinstance(value, datetime.time) else None
 
 
 class SqliteExecutor(BaseExecutor):

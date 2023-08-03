@@ -280,9 +280,9 @@ class BaseExecutor:
         query = self.db.query_class.update(table)
         count = 0
         for field in update_fields or self.model._meta.fields_db_projection.keys():
-            db_column = self.model._meta.fields_db_projection[field]
             field_object = self.model._meta.fields_map[field]
             if not field_object.pk:
+                db_column = self.model._meta.fields_db_projection[field]
                 if field not in arithmetic_or_function.keys():
                     query = query.set(db_column, self.parameter(count))
                     count += 1
@@ -359,7 +359,7 @@ class BaseExecutor:
         related_object_map: Dict[str, list] = {}
         for entry in related_object_list:
             object_id = getattr(entry, relation_field)
-            if object_id in related_object_map.keys():
+            if object_id in related_object_map:
                 related_object_map[object_id].append(entry)
             else:
                 related_object_map[object_id] = [entry]
@@ -569,8 +569,10 @@ class BaseExecutor:
             self._make_prefetch_queries()
             prefetch_tasks = []
             for field, related_queries in self._prefetch_queries.items():
-                for related_query in related_queries:
-                    prefetch_tasks.append(self._do_prefetch(instance_list, field, related_query))
+                prefetch_tasks.extend(
+                    self._do_prefetch(instance_list, field, related_query)
+                    for related_query in related_queries
+                )
             await asyncio.gather(*prefetch_tasks)
 
         return instance_list

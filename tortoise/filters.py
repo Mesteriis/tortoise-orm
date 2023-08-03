@@ -100,15 +100,11 @@ def not_equal(field: Term, value: Any) -> Criterion:
 
 
 def is_null(field: Term, value: Any) -> Criterion:
-    if value:
-        return field.isnull()
-    return field.notnull()
+    return field.isnull() if value else field.notnull()
 
 
 def not_null(field: Term, value: Any) -> Criterion:
-    if value:
-        return field.notnull()
-    return field.isnull()
+    return field.notnull() if value else field.isnull()
 
 
 def contains(field: Term, value: str) -> Criterion:
@@ -129,7 +125,7 @@ def ends_with(field: Term, value: str) -> Criterion:
 
 
 def insensitive_exact(field: Term, value: str) -> Criterion:
-    return Upper(Cast(field, SqlTypes.VARCHAR)).eq(Upper(str(value)))
+    return Upper(Cast(field, SqlTypes.VARCHAR)).eq(Upper(value))
 
 
 def insensitive_contains(field: Term, value: str) -> Criterion:
@@ -289,39 +285,39 @@ def get_backward_fk_filters(field_name: str, field: BackwardFKRelation) -> Dict[
 def get_json_filter(field_name: str, source_field: str):
     actual_field_name = field_name
     return {
-        field_name: {
+        actual_field_name: {
             "field": actual_field_name,
             "source_field": source_field,
             "operator": operator.eq,
         },
-        f"{field_name}__not": {
+        f"{actual_field_name}__not": {
             "field": actual_field_name,
             "source_field": source_field,
             "operator": not_equal,
         },
-        f"{field_name}__isnull": {
+        f"{actual_field_name}__isnull": {
             "field": actual_field_name,
             "source_field": source_field,
             "operator": is_null,
             "value_encoder": bool_encoder,
         },
-        f"{field_name}__not_isnull": {
+        f"{actual_field_name}__not_isnull": {
             "field": actual_field_name,
             "source_field": source_field,
             "operator": not_null,
             "value_encoder": bool_encoder,
         },
-        f"{field_name}__contains": {
+        f"{actual_field_name}__contains": {
             "field": actual_field_name,
             "source_field": source_field,
             "operator": json_contains,
         },
-        f"{field_name}__contained_by": {
+        f"{actual_field_name}__contained_by": {
             "field": actual_field_name,
             "source_field": source_field,
             "operator": json_contained_by,
         },
-        f"{field_name}__filter": {
+        f"{actual_field_name}__filter": {
             "field": actual_field_name,
             "source_field": source_field,
             "operator": json_filter,

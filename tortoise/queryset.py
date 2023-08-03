@@ -222,10 +222,9 @@ class AwaitableQuery(Generic[MODEL]):
                 field_name = field_object.source_field or field_name
                 field = table[field_name]
 
-                func = field_object.get_for_dialect(
+                if func := field_object.get_for_dialect(
                     model._meta.db.capabilities.dialect, "function_cast"
-                )
-                if func:
+                ):
                     field = func(field_object, field)
 
                 self.query = self.query.orderby(field, order=ordering[1])
@@ -235,13 +234,12 @@ class AwaitableQuery(Generic[MODEL]):
             return False
 
         table = self.model._meta.basetable
-        annotation_info = {}
-        for key, annotation in self._annotations.items():
-            if isinstance(annotation, Term):
-                annotation_info[key] = {"joins": [], "field": annotation}
-            else:
-                annotation_info[key] = annotation.resolve(self.model, table)
-
+        annotation_info = {
+            key: {"joins": [], "field": annotation}
+            if isinstance(annotation, Term)
+            else annotation.resolve(self.model, table)
+            for key, annotation in self._annotations.items()
+        }
         for key, info in annotation_info.items():
             for join in info["joins"]:
                 self._join_table_by_field(*join)
@@ -1278,9 +1276,7 @@ class CountQuery(AwaitableQuery):
     async def _execute(self) -> int:
         _, result = await self._db.execute_query(str(self.query))
         count = list(dict(result[0]).values())[0] - self.offset
-        if self.limit and count > self.limit:
-            return self.limit
-        return count
+        return self.limit if self.limit and count > self.limit else count
 
 
 class FieldSelectQuery(AwaitableQuery):
@@ -1294,16 +1290,15 @@ class FieldSelectQuery(AwaitableQuery):
     def _join_table_with_forwarded_fields(
         self, model: Type[MODEL], table: Table, field: str, forwarded_fields: str
     ) -> Tuple[Table, str]:
-        if field in model._meta.fields_db_projection and not forwarded_fields:
-            return table, model._meta.fields_db_projection[field]
+        if field in model._meta.fields_db_projection:
+            if not forwarded_fields:
+                return table, model._meta.fields_db_projection[field]
 
-        if field in model._meta.fields_db_projection and forwarded_fields:
             raise FieldError(f'Field "{field}" for model "{model.__name__}" is not relation')
 
         if field in self.model._meta.fetch_fields and not forwarded_fields:
             raise ValueError(
-                'Selecting relation "{}" is not possible, select concrete '
-                "field on related model".format(field)
+                f'Selecting relation "{field}" is not possible, select concrete field on related model'
             )
 
         field_object = cast(RelationalField, model._meta.fields_map.get(field))
@@ -1334,8 +1329,7 @@ class FieldSelectQuery(AwaitableQuery):
 
         if field in self.model._meta.fetch_fields:
             raise ValueError(
-                'Selecting relation "{}" is not possible, select '
-                "concrete field on related model".format(field)
+                f'Selecting relation "{field}" is not possible, select concrete field on related model'
             )
 
         field_, __, forwarded_fields = field.partition("__")
@@ -1361,8 +1355,7 @@ class FieldSelectQuery(AwaitableQuery):
 
         if field in self.annotations:
             annotation = self.annotations[field]
-            field_object = getattr(annotation, "field_object", None)
-            if field_object:
+            if field_object := getattr(annotation, "field_object", None):
                 return field_object.to_python_value
             return lambda x: x
 
@@ -1630,16 +1623,14 @@ class ValuesQuery(FieldSelectQuery, Generic[SINGLE]):
 
     async def _execute(self) -> Union[List[dict], Dict]:
         result = await self._db.execute_query_dict(str(self.query))
-        columns = [
+        if columns := [
             val
             for val in [
                 (alias, self.resolve_to_python_value(self.model, field_name))
                 for alias, field_name in self.fields_for_select.items()
             ]
             if not isinstance(val[1], types.LambdaType)
-        ]
-
-        if columns:
+        ]:
             for row in result:
                 for col, func in columns:
                     row[col] = func(row[col])
@@ -1667,11 +1658,10 @@ class RawSQLQuery(AwaitableQuery):
         self.query = RawSQL(self._sql)
 
     async def _execute(self) -> Any:
-        instance_list = await self._db.executor_class(
+        return await self._db.executor_class(
             model=self.model,
             db=self._db,
         ).execute_select(self.query)
-        return instance_list
 
     def __await__(self) -> Generator[Any, None, List[MODEL]]:
         if self._db is None:
@@ -1786,10 +1776,7 @@ class BulkCreateQuery(AwaitableQuery, Generic[MODEL]):
 
     def _make_query(self) -> None:
         self.executor = self._db.executor_class(model=self.model, db=self._db)
-        if not self.ignore_conflicts and not self.update_fields:
-            self.insert_query_all = self.executor.insert_query_all
-            self.insert_query = self.executor.insert_query
-        else:
+        if self.ignore_conflicts or self.update_fields:
             regular_columns, columns = self.executor._prepare_insert_columns()
             self.insert_query = self.executor._prepare_insert_statement(
                 columns, ignore_conflicts=self.ignore_conflicts
@@ -1802,19 +1789,22 @@ class BulkCreateQuery(AwaitableQuery, Generic[MODEL]):
                 self.insert_query_all = self.executor._prepare_insert_statement(
                     columns_all, has_generated=False, ignore_conflicts=self.ignore_conflicts
                 )
-            if self.update_fields:
-                alias = f"new_{self.model._meta.db_table}"
-                self.insert_query_all = self.insert_query_all.as_(alias).on_conflict(  # type:ignore
-                    *self.on_conflict
+        else:
+            self.insert_query_all = self.executor.insert_query_all
+            self.insert_query = self.executor.insert_query
+        if self.update_fields:
+            alias = f"new_{self.model._meta.db_table}"
+            self.insert_query_all = self.insert_query_all.as_(alias).on_conflict(  # type:ignore
+                *self.on_conflict
+            )
+            self.insert_query = self.insert_query.as_(alias).on_conflict(  # type:ignore
+                *self.on_conflict
+            )
+            for update_field in self.update_fields:
+                self.insert_query_all = self.insert_query_all.do_update(  # type:ignore
+                    update_field
                 )
-                self.insert_query = self.insert_query.as_(alias).on_conflict(  # type:ignore
-                    *self.on_conflict
-                )
-                for update_field in self.update_fields:
-                    self.insert_query_all = self.insert_query_all.do_update(  # type:ignore
-                        update_field
-                    )
-                    self.insert_query = self.insert_query.do_update(update_field)  # type:ignore
+                self.insert_query = self.insert_query.do_update(update_field)  # type:ignore
 
     async def _execute(self) -> List[MODEL]:
         for instance_chunk in chunk(self.objects, self.batch_size):

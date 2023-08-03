@@ -64,7 +64,9 @@ def mysql_ends_with(field: Term, value: str) -> Criterion:
 
 
 def mysql_insensitive_exact(field: Term, value: str) -> Criterion:
-    return functions.Upper(functions.Cast(field, SqlTypes.CHAR)).eq(functions.Upper(str(value)))
+    return functions.Upper(functions.Cast(field, SqlTypes.CHAR)).eq(
+        functions.Upper(value)
+    )
 
 
 def mysql_insensitive_contains(field: Term, value: str) -> Criterion:

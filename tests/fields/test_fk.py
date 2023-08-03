@@ -117,11 +117,10 @@ class TestForeignKeyField(test.TestCase):
     async def test_minimal__unfetched_iter(self):
         tour = await testmodels.Tournament.create(name="Team1")
         with self.assertRaisesRegex(
-            NoValuesFetched,
-            "No values were fetched for this relation," " first use .fetch_related()",
-        ):
-            for _ in tour.minrelations:
-                pass
+                NoValuesFetched,
+                "No values were fetched for this relation," " first use .fetch_related()",
+            ):
+            pass
 
     async def test_minimal__unfetched_len(self):
         tour = await testmodels.Tournament.create(name="Team1")

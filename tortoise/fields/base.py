@@ -192,11 +192,11 @@ class Field(Generic[VALUE], metaclass=_FieldMeta):
         # TODO: Rename index to db_index, alias index, deprecate
         if not self.indexable and (unique or index):
             raise ConfigurationError(f"{self.__class__.__name__} can't be indexed")
-        if pk and null:
-            raise ConfigurationError(
-                f"{self.__class__.__name__} can't be both null=True and pk=True"
-            )
         if pk:
+            if null:
+                raise ConfigurationError(
+                    f"{self.__class__.__name__} can't be both null=True and pk=True"
+                )
             index = True
             unique = True
         self.source_field = source_field
@@ -280,15 +280,16 @@ class Field(Generic[VALUE], metaclass=_FieldMeta):
     def _get_dialects(self) -> Dict[str, dict]:
         ret = {}
         for dialect in [key for key in dir(self) if key.startswith("_db_")]:
-            item = {}
             cls = getattr(self, dialect)
             try:
                 cls = cls(self)
             except TypeError:
                 pass
-            for key, val in cls.__dict__.items():
-                if not key.startswith("_"):
-                    item[key] = val
+            item = {
+                key: val
+                for key, val in cls.__dict__.items()
+                if not key.startswith("_")
+            }
             ret[dialect[4:]] = item
         return ret
 

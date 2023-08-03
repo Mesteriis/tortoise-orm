@@ -111,11 +111,10 @@ class TestForeignKeyFieldWithUnique(test.TestCase):
     async def test_stduent__unfetched_iter(self):
         school = await testmodels.School.create(id=1024, name="School1")
         with self.assertRaisesRegex(
-            NoValuesFetched,
-            "No values were fetched for this relation," " first use .fetch_related()",
-        ):
-            for _ in school.students:
-                pass
+                NoValuesFetched,
+                "No values were fetched for this relation," " first use .fetch_related()",
+            ):
+            pass
 
     async def test_student__unfetched_len(self):
         school = await testmodels.School.create(id=1024, name="School1")

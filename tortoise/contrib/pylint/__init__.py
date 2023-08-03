@@ -59,16 +59,25 @@ def transform_model(cls: ClassDef) -> None:
                         relname = ""
                         if attr.value.keywords:
                             for keyword in attr.value.keywords:
-                                if keyword.arg == "related_name":
-                                    relname = keyword.value.value
                                 if keyword.arg == "model_name":
                                     tomodel = keyword.value.value
 
+                                elif keyword.arg == "related_name":
+                                    relname = keyword.value.value
                         if not relname:
-                            relname = cls.name.lower() + "s"
+                            relname = f"{cls.name.lower()}s"
 
                         # Injected model attributes need to also have the relation manager
-                        if attrname == "ManyToManyField":
+                        if attrname == "ForeignKeyField":
+                            relval = [
+                                MANAGER.ast_from_module_name("tortoise.fields.relational").lookup(
+                                    "ForeignKeyFieldInstance"
+                                )[1][0],
+                                MANAGER.ast_from_module_name("tortoise.fields.relational").lookup(
+                                    "ReverseRelation"
+                                )[1][0],
+                            ]
+                        elif attrname == "ManyToManyField":
                             relval = [
                                 # attr.value.func,
                                 MANAGER.ast_from_module_name("tortoise.fields.relational").lookup(
@@ -76,15 +85,6 @@ def transform_model(cls: ClassDef) -> None:
                                 )[1][0],
                                 MANAGER.ast_from_module_name("tortoise.fields.relational").lookup(
                                     "ManyToManyRelation"
-                                )[1][0],
-                            ]
-                        elif attrname == "ForeignKeyField":
-                            relval = [
-                                MANAGER.ast_from_module_name("tortoise.fields.relational").lookup(
-                                    "ForeignKeyFieldInstance"
-                                )[1][0],
-                                MANAGER.ast_from_module_name("tortoise.fields.relational").lookup(
-                                    "ReverseRelation"
                                 )[1][0],
                             ]
                         elif attrname == "OneToOneField":

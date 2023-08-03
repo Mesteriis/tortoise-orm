@@ -29,9 +29,7 @@ class Against(PypikaFunction):  # type: ignore
         self.mode = mode
 
     def get_special_params_sql(self, **kwargs: Any) -> Any:
-        if not self.mode:
-            return ""
-        return self.mode.value
+        return "" if not self.mode else self.mode.value
 
 
 class SearchCriterion(BasicCriterion):  # type: ignore

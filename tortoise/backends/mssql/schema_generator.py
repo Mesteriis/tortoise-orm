@@ -97,7 +97,7 @@ class MSSQLSchemaGenerator(BaseSchemaGenerator):
         comment: str,
         default: str,
     ) -> str:
-        if nullable == "":
+        if not nullable:
             unique = ""
         return super(MSSQLSchemaGenerator, self)._create_string(
             db_column=db_column,

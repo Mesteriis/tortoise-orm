@@ -48,9 +48,7 @@ def _create_json_criterion(items: List, field_term: Term, operator_: Callable, v
 
 
 def _serialize_value(value: Any):
-    if type(value) in [dict, list]:
-        return json.dumps(value)
-    return value
+    return json.dumps(value) if type(value) in [dict, list] else value
 
 
 def postgres_json_filter(field: Term, value: Dict) -> Criterion:

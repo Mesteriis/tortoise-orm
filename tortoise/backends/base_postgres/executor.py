@@ -42,8 +42,7 @@ class BasePostgresExecutor(BaseExecutor):
             .insert(*[self.parameter(i) for i in range(len(columns))])
         )
         if has_generated:
-            generated_fields = self.model._meta.generated_db_fields
-            if generated_fields:
+            if generated_fields := self.model._meta.generated_db_fields:
                 query = query.returning(*generated_fields)
         if ignore_conflicts:
             query = query.on_conflict().do_nothing()

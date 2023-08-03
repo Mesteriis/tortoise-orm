@@ -142,9 +142,7 @@ def expand_db_url(db_url: str, testing: bool = False) -> dict:
         # Other database backend accepts database name being None (but not empty string).
         path = None
 
-    params: dict = {}
-    for key, val in db["defaults"].items():
-        params[key] = val
+    params: dict = dict(db["defaults"].items())
     for key, val in urlparse.parse_qs(url.query).items():
         cast = db["cast"].get(key, str)
         params[key] = cast(val[-1])
@@ -154,7 +152,7 @@ def expand_db_url(db_url: str, testing: bool = False) -> dict:
         path = path.format(uuid.uuid4().hex)
 
     vmap: dict = {}
-    vmap.update(db["vmap"])
+    vmap |= db["vmap"]
     params[vmap["path"]] = path
     if vmap.get("hostname"):
         params[vmap["hostname"]] = url.hostname or None

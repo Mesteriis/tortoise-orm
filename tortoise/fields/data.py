@@ -193,9 +193,9 @@ class CharField(Field[str]):
     field_type = str
 
     def __init__(self, max_length: int, **kwargs: Any) -> None:
-        if int(max_length) < 1:
+        if max_length < 1:
             raise ConfigurationError("'max_length' must be >= 1")
-        self.max_length = int(max_length)
+        self.max_length = max_length
         super().__init__(**kwargs)
         self.validators.append(MaxLengthValidator(self.max_length))
 
@@ -288,9 +288,9 @@ class DecimalField(Field[Decimal], Decimal):
     skip_to_python_if_native = True
 
     def __init__(self, max_digits: int, decimal_places: int, **kwargs: Any) -> None:
-        if int(max_digits) < 1:
+        if max_digits < 1:
             raise ConfigurationError("'max_digits' must be >= 1")
-        if int(decimal_places) < 0:
+        if decimal_places < 0:
             raise ConfigurationError("'decimal_places' must be >= 0")
         super().__init__(**kwargs)
         self.max_digits = max_digits
@@ -621,9 +621,7 @@ class UUIDField(Field[UUID], UUID):
         return value and str(value)
 
     def to_python_value(self, value: Any) -> Optional[UUID]:
-        if value is None or isinstance(value, UUID):
-            return value
-        return UUID(value)
+        return value if value is None or isinstance(value, UUID) else UUID(value)
 
 
 class BinaryField(Field[bytes], bytes):  # type: ignore
@@ -664,7 +662,7 @@ class IntEnumFieldInstance(SmallIntField):
                 raise ConfigurationError("IntEnumField only supports integer enums!")
             if not minimum <= value < 32768:
                 raise ConfigurationError(
-                    "The valid range of IntEnumField's values is {}..32767!".format(minimum)
+                    f"The valid range of IntEnumField's values is {minimum}..32767!"
                 )
 
         # Automatic description for the field if not specified by the user
@@ -751,9 +749,7 @@ class CharEnumFieldInstance(CharField):
         self.validate(value)
         if isinstance(value, Enum):
             return str(value.value)
-        if isinstance(value, str):
-            return str(self.enum_type(value).value)
-        return value
+        return str(self.enum_type(value).value) if isinstance(value, str) else value
 
 
 CharEnumType = TypeVar("CharEnumType", bound=Enum)

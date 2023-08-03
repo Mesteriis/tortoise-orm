@@ -27,11 +27,10 @@ def _get_fetch_fields(
 
         # noinspection PyProtectedMember
         if field_name in model_class._meta.fetch_fields and issubclass(field_type, PydanticModel):
-            subclass_fetch_fields = _get_fetch_fields(
+            if subclass_fetch_fields := _get_fetch_fields(
                 field_type, field_type.model_config["orig_model"]
-            )
-            if subclass_fetch_fields:
-                fetch_fields.extend([field_name + "__" + f for f in subclass_fetch_fields])
+            ):
+                fetch_fields.extend([f"{field_name}__{f}" for f in subclass_fetch_fields])
             else:
                 fetch_fields.append(field_name)
     return fetch_fields

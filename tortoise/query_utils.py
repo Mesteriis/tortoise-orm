@@ -23,18 +23,20 @@ def _get_joins_for_related_field(
     related_table: Table = related_field.related_model._meta.basetable
     if isinstance(related_field, ManyToManyFieldInstance):
         through_table = Table(related_field.through)
-        required_joins.append(
+        required_joins.extend(
             (
-                through_table,
-                table[related_field.model._meta.db_pk_column]
-                == through_table[related_field.backward_key],
-            )
-        )
-        required_joins.append(
-            (
-                related_table,
-                through_table[related_field.forward_key]
-                == related_table[related_field.related_model._meta.db_pk_column],
+                (
+                    through_table,
+                    table[related_field.model._meta.db_pk_column]
+                    == through_table[related_field.backward_key],
+                ),
+                (
+                    related_table,
+                    through_table[related_field.forward_key]
+                    == related_table[
+                        related_field.related_model._meta.db_pk_column
+                    ],
+                ),
             )
         )
     elif isinstance(related_field, BackwardFKRelation):
@@ -82,15 +84,11 @@ class EmptyCriterion(Criterion):  # type: ignore
 
 
 def _and(left: Criterion, right: Criterion) -> Criterion:
-    if left and not right:
-        return left
-    return left & right
+    return left if left and not right else left & right
 
 
 def _or(left: Criterion, right: Criterion) -> Criterion:
-    if left and not right:
-        return left
-    return left | right
+    return left if left and not right else left | right
 
 
 class QueryModifier:
@@ -138,15 +136,21 @@ class QueryModifier:
         )
 
     def __invert__(self) -> "QueryModifier":
-        if not self.where_criterion and not self.having_criterion:
-            return QueryModifier(joins=self.joins)
-        if self.having_criterion:
-            # TODO: This could be optimized?
-            return QueryModifier(
-                joins=self.joins,
-                having_criterion=_and(self.where_criterion, self.having_criterion).negate(),
+        if self.where_criterion or self.having_criterion:
+            return (
+                QueryModifier(
+                    joins=self.joins,
+                    having_criterion=_and(
+                        self.where_criterion, self.having_criterion
+                    ).negate(),
+                )
+                if self.having_criterion
+                else QueryModifier(
+                    where_criterion=self.where_criterion.negate(), joins=self.joins
+                )
             )
-        return QueryModifier(where_criterion=self.where_criterion.negate(), joins=self.joins)
+        else:
+            return QueryModifier(joins=self.joins)
 
     def get_query_modifiers(self) -> Tuple[Criterion, List[Tuple[Table, Criterion]], Criterion]:
         """

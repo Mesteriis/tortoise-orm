@@ -289,10 +289,10 @@ class NestedTransactionContext(TransactionContext):
         return self.connection
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        if not self.connection._finalized:
-            if exc_type:
+        if exc_type:
                 # Can't rollback a transaction that already failed.
-                if exc_type is not TransactionManagementError:
+            if exc_type is not TransactionManagementError:
+                if not self.connection._finalized:
                     await self.connection.rollback()
 
 
@@ -303,10 +303,10 @@ class NestedTransactionPooledContext(TransactionContext):
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self.lock.release()  # type:ignore
-        if not self.connection._finalized:
-            if exc_type:
+        if exc_type:
                 # Can't rollback a transaction that already failed.
-                if exc_type is not TransactionManagementError:
+            if exc_type is not TransactionManagementError:
+                if not self.connection._finalized:
                     await self.connection.rollback()
 
 
