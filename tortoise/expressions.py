@@ -53,10 +53,9 @@ class F(PypikaField):  # type: ignore
 
                 field_object = model._meta.fields_map.get(name, None)
                 if field_object:
-                    func = field_object.get_for_dialect(
+                    if func := field_object.get_for_dialect(
                         model._meta.db.capabilities.dialect, "function_cast"
-                    )
-                    if func:
+                    ):
                         arithmetic_expression_or_field = func(
                             field_object, arithmetic_expression_or_field
                         )
@@ -223,16 +222,19 @@ class Q(Expression):
             annotation_info = annotation.resolve(model, table)
 
         operator = having_info["operator"]
-        overridden_operator = model._meta.db.executor_class.get_overridden_filter_func(
+        if overridden_operator := model._meta.db.executor_class.get_overridden_filter_func(
             filter_func=operator
-        )
-        if overridden_operator:
+        ):
             operator = overridden_operator
-        if annotation_info["field"].is_aggregate:
-            modifier = QueryModifier(having_criterion=operator(annotation_info["field"], value))
-        else:
-            modifier = QueryModifier(where_criterion=operator(annotation_info["field"], value))
-        return modifier
+        return (
+            QueryModifier(
+                having_criterion=operator(annotation_info["field"], value)
+            )
+            if annotation_info["field"].is_aggregate
+            else QueryModifier(
+                where_criterion=operator(annotation_info["field"], value)
+            )
+        )
 
     def _process_filter_kwarg(
         self, model: "Type[Model]", key: str, value: Any, table: Table
@@ -275,12 +277,10 @@ class Q(Expression):
         self, model: "Type[Model]", key: str, value: Any, table: Table
     ) -> QueryModifier:
         if key not in model._meta.filters and key.split("__")[0] in model._meta.fetch_fields:
-            modifier = self._resolve_nested_filter(model, key, value, table)
-        else:
-            criterion, join = self._process_filter_kwarg(model, key, value, table)
-            joins = [join] if join else []
-            modifier = QueryModifier(where_criterion=criterion, joins=joins)
-        return modifier
+            return self._resolve_nested_filter(model, key, value, table)
+        criterion, join = self._process_filter_kwarg(model, key, value, table)
+        joins = [join] if join else []
+        return QueryModifier(where_criterion=criterion, joins=joins)
 
     def _get_actual_filter_params(
         self, model: "Type[Model]", key: str, value: Table
@@ -288,16 +288,10 @@ class Q(Expression):
         filter_key = key
         if key in model._meta.fk_fields or key in model._meta.o2o_fields:
             field_object = model._meta.fields_map[key]
-            if hasattr(value, "pk"):
-                filter_value = value.pk
-            else:
-                filter_value = value
+            filter_value = value.pk if hasattr(value, "pk") else value
             filter_key = cast(str, field_object.source_field)
         elif key in model._meta.m2m_fields:
-            if hasattr(value, "pk"):
-                filter_value = value.pk
-            else:
-                filter_value = value
+            filter_value = value.pk if hasattr(value, "pk") else value
         elif (
             key.split("__")[0] in model._meta.fetch_fields
             or key in self._custom_filters
@@ -435,10 +429,9 @@ class Function(Expression):
             if self.populate_field_object:
                 self.field_object = model._meta.fields_map.get(last_field, None)
                 if self.field_object:  # pragma: nobranch
-                    func = self.field_object.get_for_dialect(
+                    if func := self.field_object.get_for_dialect(
                         model._meta.db.capabilities.dialect, "function_cast"
-                    )
-                    if func:
+                    ):
                         field = func(self.field_object, field)
 
         return {"joins": joins, "field": field}

@@ -41,9 +41,7 @@ class BasePostgresSchemaGenerator(BaseSchemaGenerator):
     def _post_table_hook(self) -> str:
         val = "\n".join(self.comments_array)
         self.comments_array = []
-        if val:
-            return "\n" + val
-        return ""
+        return "\n" + val if val else ""
 
     def _column_default_generator(
         self,

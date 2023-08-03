@@ -45,8 +45,7 @@ class PsycopgClient(postgres_client.BasePostgresClient):
 
         extra = self.extra.copy()
         extra.setdefault("timeout", self.default_timeout)
-        ssl: SSLContext = extra.pop("ssl", None)
-        if ssl:
+        if ssl := extra.pop("ssl", None):
             if isinstance(ssl, SSLContext) and ssl.check_hostname:
                 self.server_settings["sslmode"] = "verify-full"
             else:
@@ -95,10 +94,7 @@ class PsycopgClient(postgres_client.BasePostgresClient):
 
     async def execute_insert(self, query: str, values: list) -> typing.Optional[typing.Any]:
         inserted, rows = await self.execute_query(query, values)
-        if rows:
-            return rows[0]
-        else:
-            return None
+        return rows[0] if rows else None
 
     @postgres_client.translate_exceptions
     async def execute_many(self, query: str, values: list) -> None:

@@ -19,11 +19,8 @@ class PostgreSQLIndex(PartialIndex):
     ):
         super().__init__(*expressions, fields=fields, name=name)
         if condition:
-            cond = " WHERE "
-            items = []
-            for k, v in condition.items():
-                items.append(f"{k} = {ValueWrapper(v)}")
-            cond += " AND ".join(items)
+            items = [f"{k} = {ValueWrapper(v)}" for k, v in condition.items()]
+            cond = " WHERE " + " AND ".join(items)
             self.extra = cond
 
 

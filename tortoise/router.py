@@ -22,8 +22,7 @@ class ConnectionRouter:
                 # If the router doesn't have a method, skip to the next one.
                 pass
             else:
-                chosen_db = method(model)
-                if chosen_db:
+                if chosen_db := method(model):
                     return chosen_db
 
     def _db_route(self, model: Type["Model"], action: str):

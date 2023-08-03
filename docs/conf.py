@@ -25,15 +25,16 @@ sys.path.insert(0, os.path.abspath(".."))
 
 
 project = "Tortoise ORM"
-copyright = f"2018 - {datetime.today().year}, Andrey Bondar & Nickolas Grigoriadis & long2ice"  # pylint: disable=W0622
+copyright = f"2018 - {datetime.now().year}, Andrey Bondar & Nickolas Grigoriadis & long2ice"
 author = "Andrey Bondar & Nickolas Grigoriadis & long2ice"
 
 
 def get_version():
     verstrline = open("../tortoise/__init__.py", "rt").read()
-    mob = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", verstrline, re.M)
-    if mob:
-        return mob.group(1)
+    if mob := re.search(
+        r"^__version__ = ['\"]([^'\"]*)['\"]", verstrline, re.M
+    ):
+        return mob[1]
     else:
         raise RuntimeError("Unable to find version string")
 
@@ -186,10 +187,10 @@ html_theme_options = {
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = "%s v%s Documentation" % (project, release)
+html_title = f"{project} v{release} Documentation"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_short_title = "%s %s Documentation" % (project, version)
+html_short_title = f"{project} {version} Documentation"
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.

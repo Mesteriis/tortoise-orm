@@ -83,11 +83,10 @@ def get_together(meta: "Model.Meta", together: str) -> Tuple[Tuple[str, ...], ..
 def prepare_default_ordering(meta: "Model.Meta") -> Tuple[Tuple[str, Order], ...]:
     ordering_list = getattr(meta, "ordering", ())
 
-    parsed_ordering = tuple(
-        QuerySet._resolve_ordering_string(ordering) for ordering in ordering_list
+    return tuple(
+        QuerySet._resolve_ordering_string(ordering)
+        for ordering in ordering_list
     )
-
-    return parsed_ordering
 
 
 def _fk_setter(
@@ -324,11 +323,11 @@ class MetaInfo:
             | self.o2o_fields
         )
 
-        generated_fields = []
-        for field in self.fields_map.values():
-            if not field.generated:
-                continue
-            generated_fields.append(field.source_field or field.model_field_name)
+        generated_fields = [
+            (field.source_field or field.model_field_name)
+            for field in self.fields_map.values()
+            if field.generated
+        ]
         self.generated_db_fields = tuple(generated_fields)  # type: ignore
 
         self._ordering_validated = True
@@ -476,10 +475,9 @@ class MetaInfo:
     def _generate_filters(self) -> None:
         get_overridden_filter_func = self.db.executor_class.get_overridden_filter_func
         for key, filter_info in self._filters.items():
-            overridden_operator = get_overridden_filter_func(
+            if overridden_operator := get_overridden_filter_func(
                 filter_func=filter_info["operator"]  # type: ignore
-            )
-            if overridden_operator:
+            ):
                 filter_info = copy(filter_info)
                 filter_info["operator"] = overridden_operator  # type: ignore
             self.filters[key] = filter_info
@@ -540,7 +538,7 @@ class ModelMeta(type):
             __search_for_field_attributes(base, inherited_attrs)
         if inherited_attrs:
             # Ensure that the inherited fields are before the defined ones.
-            attrs = {**inherited_attrs, **attrs}
+            attrs = inherited_attrs | attrs
 
         if name != "Model":
             custom_pk_present = False
@@ -643,8 +641,8 @@ class ModelMeta(type):
         meta.finalise_fields()
         return new_class
 
-    def __getitem__(cls: Type[MODEL], key: Any) -> QuerySetSingle[MODEL]:  # type: ignore
-        return cls._getbypk(key)  # type: ignore
+    def __getitem__(self, key: Any) -> QuerySetSingle[MODEL]:  # type: ignore
+        return self._getbypk(key)
 
 
 class Model(metaclass=ModelMeta):
@@ -849,32 +847,30 @@ class Model(metaclass=ModelMeta):
         self,
         using_db: Optional[BaseDBAsyncClient] = None,
     ) -> None:
-        listeners = []
         cls_listeners = self._listeners.get(Signals.pre_delete, {}).get(self.__class__, [])
-        for listener in cls_listeners:
-            listeners.append(
-                listener(
-                    self.__class__,
-                    self,
-                    using_db,
-                )
+        listeners = [
+            listener(
+                self.__class__,
+                self,
+                using_db,
             )
+            for listener in cls_listeners
+        ]
         await asyncio.gather(*listeners)
 
     async def _post_delete(
         self,
         using_db: Optional[BaseDBAsyncClient] = None,
     ) -> None:
-        listeners = []
         cls_listeners = self._listeners.get(Signals.post_delete, {}).get(self.__class__, [])
-        for listener in cls_listeners:
-            listeners.append(
-                listener(
-                    self.__class__,
-                    self,
-                    using_db,
-                )
+        listeners = [
+            listener(
+                self.__class__,
+                self,
+                using_db,
             )
+            for listener in cls_listeners
+        ]
         await asyncio.gather(*listeners)
 
     async def _pre_save(
@@ -882,10 +878,11 @@ class Model(metaclass=ModelMeta):
         using_db: Optional[BaseDBAsyncClient] = None,
         update_fields: Optional[Iterable[str]] = None,
     ) -> None:
-        listeners = []
         cls_listeners = self._listeners.get(Signals.pre_save, {}).get(self.__class__, [])
-        for listener in cls_listeners:
-            listeners.append(listener(self.__class__, self, using_db, update_fields))
+        listeners = [
+            listener(self.__class__, self, using_db, update_fields)
+            for listener in cls_listeners
+        ]
         await asyncio.gather(*listeners)
 
     async def _post_save(
@@ -894,10 +891,11 @@ class Model(metaclass=ModelMeta):
         created: bool = False,
         update_fields: Optional[Iterable[str]] = None,
     ) -> None:
-        listeners = []
         cls_listeners = self._listeners.get(Signals.post_save, {}).get(self.__class__, [])
-        for listener in cls_listeners:
-            listeners.append(listener(self.__class__, self, created, using_db, update_fields))
+        listeners = [
+            listener(self.__class__, self, created, using_db, update_fields)
+            for listener in cls_listeners
+        ]
         await asyncio.gather(*listeners)
 
     async def save(
@@ -924,20 +922,19 @@ class Model(metaclass=ModelMeta):
         db = using_db or self._choose_db(True)
         executor = db.executor_class(model=self.__class__, db=db)
         if self._partial:
-            if update_fields:
-                for field in update_fields:
-                    if not hasattr(self, self._meta.pk_attr):
-                        raise IncompleteInstanceError(
-                            f"{self.__class__.__name__} is a partial model without primary key fetchd. Partial update not available"
-                        )
-                    if not hasattr(self, field):
-                        raise IncompleteInstanceError(
-                            f"{self.__class__.__name__} is a partial model, field '{field}' is not available"
-                        )
-            else:
+            if not update_fields:
                 raise IncompleteInstanceError(
                     f"{self.__class__.__name__} is a partial model, can only be saved with the relevant update_field provided"
                 )
+            for field in update_fields:
+                if not hasattr(self, self._meta.pk_attr):
+                    raise IncompleteInstanceError(
+                        f"{self.__class__.__name__} is a partial model without primary key fetchd. Partial update not available"
+                    )
+                if not hasattr(self, field):
+                    raise IncompleteInstanceError(
+                        f"{self.__class__.__name__} is a partial model, field '{field}' is not available"
+                    )
         await self._pre_save(db, update_fields)
 
         if force_create:
@@ -947,20 +944,19 @@ class Model(metaclass=ModelMeta):
             rows = await executor.execute_update(self, update_fields)
             if rows == 0:
                 raise IntegrityError(f"Can't update object that doesn't exist. PK: {self.pk}")
-            created = False
-        else:
-            if self._saved_in_db or update_fields:
-                if self.pk is None:
-                    await executor.execute_insert(self)
-                    created = True
-                else:
-                    await executor.execute_update(self, update_fields)
-                    created = False
             else:
-                # TODO: Do a merge/upsert operation here instead. Let the executor determine an optimal strategy for each DB engine.
-                await executor.execute_insert(self)
-                created = True
-
+                created = False
+        elif (
+            (self._saved_in_db or update_fields)
+            and self.pk is None
+            or not self._saved_in_db
+            and not update_fields
+        ):
+            await executor.execute_insert(self)
+            created = True
+        else:
+            await executor.execute_update(self, update_fields)
+            created = False
         self._saved_in_db = True
         await self._post_save(db, created, update_fields)
 
@@ -1028,10 +1024,7 @@ class Model(metaclass=ModelMeta):
         :param for_write: Whether this query for write.
         :return: BaseDBAsyncClient:
         """
-        if for_write:
-            db = router.db_for_write(cls)
-        else:
-            db = router.db_for_read(cls)
+        db = router.db_for_write(cls) if for_write else router.db_for_read(cls)
         return db or cls._meta.db
 
     @classmethod

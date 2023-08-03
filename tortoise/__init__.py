@@ -99,9 +99,7 @@ class Tortoise:
         if not models:
             models = []
             for app in cls.apps.values():
-                for model in app.values():
-                    models.append(model)
-
+                models.extend(iter(app.values()))
         return {
             f"{model._meta.app}.{model.__name__}": model.describe(serializable) for model in models
         }
@@ -406,9 +404,7 @@ class Tortoise:
                 connections.get(info.get("default_connection", "default"))
             except KeyError:
                 raise ConfigurationError(
-                    'Unknown connection "{}" for app "{}"'.format(
-                        info.get("default_connection", "default"), name
-                    )
+                    f'Unknown connection "{info.get("default_connection", "default")}" for app "{name}"'
                 )
 
             cls.init_models(info["models"], name, _init_relations=False)
@@ -555,16 +551,13 @@ class Tortoise:
         for name, info in connections_config.items():
             if isinstance(info, str):
                 info = expand_db_url(info)
-            password = info.get("credentials", {}).get("password")
-            if password:
+            if password := info.get("credentials", {}).get("password"):
                 passwords.append(password)
 
         str_connection_config = str(connections_config)
         for password in passwords:
             str_connection_config = str_connection_config.replace(
-                password,
-                # Show one third of the password at beginning (may be better for debugging purposes)
-                f"{password[0:len(password) // 3]}***",
+                password, f"{password[:len(password) // 3]}***"
             )
 
         logger.debug(

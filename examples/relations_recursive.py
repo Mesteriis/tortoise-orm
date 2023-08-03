@@ -35,12 +35,7 @@ class Employee(Model):
         An async iterator will fetch the relationship on-demand.
         """
         text = [
-            "{}{} (to: {}) (from: {})".format(
-                level * "  ",
-                self,
-                ", ".join([str(val) async for val in self.talks_to]),
-                ", ".join([str(val) async for val in self.gets_talked_to]),
-            )
+            f'{level * "  "}{self} (to: {", ".join([str(val) async for val in self.talks_to])}) (from: {", ".join([str(val) async for val in self.gets_talked_to])})'
         ]
         async for member in self.team_members:
             text.append(await member.full_hierarchy__async_for(level + 1))
@@ -56,12 +51,7 @@ class Employee(Model):
         """
         await self.fetch_related("team_members", "talks_to", "gets_talked_to")
         text = [
-            "{}{} (to: {}) (from: {})".format(
-                level * "  ",
-                self,
-                ", ".join([str(val) for val in self.talks_to]),
-                ", ".join([str(val) for val in self.gets_talked_to]),
-            )
+            f'{level * "  "}{self} (to: {", ".join([str(val) for val in self.talks_to])}) (from: {", ".join([str(val) for val in self.gets_talked_to])})'
         ]
         for member in self.team_members:
             text.append(await member.full_hierarchy__fetch_related(level + 1))

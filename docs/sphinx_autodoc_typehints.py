@@ -24,12 +24,11 @@ def format_annotation(annotation, fully_qualified=False):
         if annotation.__qualname__ == 'NoneType':
             return '``None``'
         else:
-            return ':py:class:`{}`'.format(annotation.__qualname__)
+            return f':py:class:`{annotation.__qualname__}`'
 
     annotation_cls = annotation if inspect.isclass(annotation) else type(annotation)
     if annotation_cls.__module__ == 'typing':
         class_name = str(annotation).split('[')[0].split('.')[-1]
-        params = None
         module = 'typing'
         extra = ''
 
@@ -43,13 +42,13 @@ def format_annotation(annotation, fully_qualified=False):
             except TypeError:
                 pass  # annotation_cls was either the "type" object or typing.Type
 
+        params = None
         if annotation is Any:
-            return ':py:data:`{}typing.Any`'.format("" if fully_qualified else "~")
+            return f':py:data:`{"" if fully_qualified else "~"}typing.Any`'
         elif annotation is AnyStr:
-            return ':py:data:`{}typing.AnyStr`'.format("" if fully_qualified else "~")
+            return f':py:data:`{"" if fully_qualified else "~"}typing.AnyStr`'
         elif isinstance(annotation, TypeVar):
-            bound = annotation.__bound__
-            if bound:
+            if bound := annotation.__bound__:
                 if 'ForwardRef(' in str(bound):
                     try:
                         bound = bound._evaluate(sys.modules[annotation.__module__].__dict__, None)
@@ -88,11 +87,8 @@ def format_annotation(annotation, fully_qualified=False):
                 params = [Ellipsis, result_annotation]
             elif arg_annotations is not None:
                 params = [
-                    '\\[{}]'.format(
-                        ', '.join(
-                            format_annotation(param, fully_qualified)
-                            for param in arg_annotations)),
-                    result_annotation
+                    f"\\[{', '.join(format_annotation(param, fully_qualified) for param in arg_annotations)}]",
+                    result_annotation,
                 ]
         elif str(annotation).startswith('typing.ClassVar[') and hasattr(annotation, '__type__'):
             # < py3.7
@@ -107,8 +103,7 @@ def format_annotation(annotation, fully_qualified=False):
             params = annotation.__parameters__
 
         if params:
-            extra = '\\[{}]'.format(', '.join(
-                format_annotation(param, fully_qualified) for param in params))
+            extra = f"\\[{', '.join(format_annotation(param, fully_qualified) for param in params)}]"
 
         return '{prefix}`{qualify}{module}.{name}`{extra}'.format(
             prefix=':py:data:' if class_name in pydata_annotations else ':py:class:',
@@ -137,11 +132,11 @@ def format_annotation(annotation, fully_qualified=False):
             pass
         else:
             if Generic in mro or (Protocol and Protocol in mro):
-                params = (getattr(annotation, '__parameters__', None) or
-                          getattr(annotation, '__args__', None))
-                if params:
-                    extra = '\\[{}]'.format(', '.join(
-                        format_annotation(param, fully_qualified) for param in params))
+                if params := (
+                    getattr(annotation, '__parameters__', None)
+                    or getattr(annotation, '__args__', None)
+                ):
+                    extra = f"\\[{', '.join(format_annotation(param, fully_qualified) for param in params)}]"
 
         return ':py:class:`{qualify}{module}.{name}`{extra}'.format(
             qualify="" if fully_qualified else "~",
@@ -157,7 +152,7 @@ def process_signature(app, what: str, name: str, obj, options, signature, return
     if not callable(obj):
         return
 
-    if what in ('class', 'exception'):
+    if what in {'class', 'exception'}:
         obj = getattr(obj, '__init__', getattr(obj, '__new__', None))
 
     if not getattr(obj, '__annotations__', None):
@@ -177,7 +172,7 @@ def process_signature(app, what: str, name: str, obj, options, signature, return
         return
 
     if parameters:
-        if what in ('class', 'exception'):
+        if what in {'class', 'exception'}:
             del parameters[0]
         elif what == 'method':
             outer = inspect.getmodule(obj)
@@ -309,11 +304,7 @@ def backfill_type_hints(obj, name):
         if arg_key is None:
             continue
 
-        if is_inline:  # the type information now is tied to the argument
-            value = getattr(arg, "type_comment", None)
-        else:  # type data from comment
-            value = comment_args[at]
-
+        value = getattr(arg, "type_comment", None) if is_inline else comment_args[at]
         if value is not None:
             rv[arg_key] = value
 
@@ -323,8 +314,7 @@ def backfill_type_hints(obj, name):
 def load_args(obj_ast):
     func_args = obj_ast.args
     args = []
-    pos_only = getattr(func_args, 'posonlyargs', None)
-    if pos_only:
+    if pos_only := getattr(func_args, 'posonlyargs', None):
         args.extend(pos_only)
 
     args.extend(func_args.args)
@@ -376,28 +366,26 @@ def process_docstring(app, what, name, obj, options, lines):
             if argname == 'return':
                 continue  # this is handled separately later
             if argname.endswith('_'):
-                argname = '{}\\_'.format(argname[:-1])
+                argname = f'{argname[:-1]}\\_'
 
             formatted_annotation = format_annotation(
                 annotation, fully_qualified=app.config.typehints_fully_qualified)
 
-            searchfor = ':param {}:'.format(argname)
-            insert_index = None
-
-            for i, line in enumerate(lines):
-                if line.startswith(searchfor):
-                    insert_index = i
-                    break
-
+            searchfor = f':param {argname}:'
+            insert_index = next(
+                (
+                    i
+                    for i, line in enumerate(lines)
+                    if line.startswith(searchfor)
+                ),
+                None,
+            )
             if insert_index is None and app.config.always_document_param_types:
                 lines.append(searchfor)
                 insert_index = len(lines)
 
             if insert_index is not None:
-                lines.insert(
-                    insert_index,
-                    ':type {}: {}'.format(argname, formatted_annotation)
-                )
+                lines.insert(insert_index, f':type {argname}: {formatted_annotation}')
 
         if 'return' in type_hints and what not in ('class', 'exception'):
             formatted_annotation = format_annotation(
@@ -418,7 +406,7 @@ def process_docstring(app, what, name, obj, options, lines):
                     lines.append('')
                     insert_index += 1
 
-                lines.insert(insert_index, ':rtype: {}'.format(formatted_annotation))
+                lines.insert(insert_index, f':rtype: {formatted_annotation}')
 
 
 def builder_ready(app):

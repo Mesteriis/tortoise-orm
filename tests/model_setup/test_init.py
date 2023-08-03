@@ -203,9 +203,9 @@ class TestInitErrors(test.SimpleTestCase):
 
     async def test_url_without_modules(self):
         with self.assertRaisesRegex(
-            ConfigurationError, 'You must specify "db_url" and "modules" together'
-        ):
-            await Tortoise.init(db_url=f"sqlite://{':memory:'}")
+                ConfigurationError, 'You must specify "db_url" and "modules" together'
+            ):
+            await Tortoise.init(db_url='sqlite://:memory:')
 
     async def test_default_connection_init(self):
         await Tortoise.init(
@@ -225,9 +225,12 @@ class TestInitErrors(test.SimpleTestCase):
     async def test_db_url_init(self):
         await Tortoise.init(
             {
-                "connections": {"default": f"sqlite://{':memory:'}"},
+                "connections": {"default": 'sqlite://:memory:'},
                 "apps": {
-                    "models": {"models": ["tests.testmodels"], "default_connection": "default"}
+                    "models": {
+                        "models": ["tests.testmodels"],
+                        "default_connection": "default",
+                    }
                 },
             }
         )
@@ -236,7 +239,7 @@ class TestInitErrors(test.SimpleTestCase):
 
     async def test_shorthand_init(self):
         await Tortoise.init(
-            db_url=f"sqlite://{':memory:'}", modules={"models": ["tests.testmodels"]}
+            db_url='sqlite://:memory:', modules={"models": ["tests.testmodels"]}
         )
         self.assertIn("models", Tortoise.apps)
         self.assertIsNotNone(connections.get("default"))
@@ -326,13 +329,13 @@ class TestInitErrors(test.SimpleTestCase):
 
     @test.skipIf(os.name == "nt", "path issue on Windows")
     async def test_init_json_file(self):
-        await Tortoise.init(config_file=os.path.dirname(__file__) + "/init.json")
+        await Tortoise.init(config_file=f"{os.path.dirname(__file__)}/init.json")
         self.assertIn("models", Tortoise.apps)
         self.assertIsNotNone(connections.get("default"))
 
     @test.skipIf(os.name == "nt", "path issue on Windows")
     async def test_init_yaml_file(self):
-        await Tortoise.init(config_file=os.path.dirname(__file__) + "/init.yaml")
+        await Tortoise.init(config_file=f"{os.path.dirname(__file__)}/init.yaml")
         self.assertIn("models", Tortoise.apps)
         self.assertIsNotNone(connections.get("default"))
 

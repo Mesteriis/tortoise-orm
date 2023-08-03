@@ -119,11 +119,10 @@ class TestForeignKeyUUIDField(test.TestCase):
     async def test_unfetched_iter(self):
         tour = await self.UUIDPkModel.create()
         with self.assertRaisesRegex(
-            NoValuesFetched,
-            "No values were fetched for this relation," " first use .fetch_related()",
-        ):
-            for _ in tour.children:
-                pass
+                NoValuesFetched,
+                "No values were fetched for this relation," " first use .fetch_related()",
+            ):
+            pass
 
     async def test_unfetched_len(self):
         tour = await self.UUIDPkModel.create()

@@ -308,18 +308,22 @@ class TestCharFkFieldFilters(test.TestCase):
             {"2001"},
         )
         self.assertSetEqual(
-            set(await CharPkModel.filter(children__isnull=False).values_list("id", flat=True)),
-            {
-                "17",
-                "17",
-                "12",
-            },  # TODO: [4/7/2021 by Mykola] Not sure if this is an expected behavior
+            set(
+                await CharPkModel.filter(children__isnull=False).values_list(
+                    "id", flat=True
+                )
+            ),
+            {"17", "12"},
         )
 
     async def test_not_isnull(self):
         self.assertSetEqual(
-            set(await CharPkModel.filter(children__not_isnull=True).values_list("id", flat=True)),
-            {"17", "17", "12"},
+            set(
+                await CharPkModel.filter(children__not_isnull=True).values_list(
+                    "id", flat=True
+                )
+            ),
+            {"17", "12"},
         )
         self.assertSetEqual(
             set(await CharPkModel.filter(children__not_isnull=False).values_list("id", flat=True)),

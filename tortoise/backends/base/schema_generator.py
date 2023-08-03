@@ -140,26 +140,23 @@ class BaseSchemaGenerator:
         # characters (Oracle limit).
         # That's why we slice some of the strings here.
         table_name = model._meta.db_table
-        index_name = "{}_{}_{}_{}".format(
+        return "{}_{}_{}_{}".format(
             prefix,
             table_name[:11],
             field_names[0][:7],
             self._make_hash(table_name, *field_names, length=6),
         )
-        return index_name
 
     def _generate_fk_name(
         self, from_table: str, from_field: str, to_table: str, to_field: str
     ) -> str:
-        # NOTE: for compatibility, index name should not be longer than 30
-        # characters (Oracle limit).
-        # That's why we slice some of the strings here.
-        index_name = "fk_{f}_{t}_{h}".format(
+        return "fk_{f}_{t}_{h}".format(
             f=from_table[:8],
             t=to_table[:8],
-            h=self._make_hash(from_table, from_field, to_table, to_field, length=8),
+            h=self._make_hash(
+                from_table, from_field, to_table, to_field, length=8
+            ),
         )
-        return index_name
 
     def _get_index_sql(self, model: "Type[Model]", field_names: List[str], safe: bool) -> str:
         return self.INDEX_CREATE_TEMPLATE.format(
@@ -218,8 +215,9 @@ class BaseSchemaGenerator:
             # TODO: PK generation needs to move out of schema generator.
             if field_object.pk:
                 if field_object.generated:
-                    generated_sql = field_object.get_for_dialect(self.DIALECT, "GENERATED_SQL")
-                    if generated_sql:  # pragma: nobranch
+                    if generated_sql := field_object.get_for_dialect(
+                        self.DIALECT, "GENERATED_SQL"
+                    ):
                         fields_to_create.append(
                             self.GENERATED_PK_TEMPLATE.format(
                                 field_name=column_name,
@@ -416,10 +414,9 @@ class BaseSchemaGenerator:
 
         self._get_models_to_create(models_to_create)
 
-        tables_to_create = []
-        for model in models_to_create:
-            tables_to_create.append(self._get_table_sql(model, safe))
-
+        tables_to_create = [
+            self._get_table_sql(model, safe) for model in models_to_create
+        ]
         tables_to_create_count = len(tables_to_create)
 
         created_tables: Set[dict] = set()
@@ -441,8 +438,7 @@ class BaseSchemaGenerator:
             ordered_tables_for_create.append(next_table_for_create["table_creation_string"])
             m2m_tables_to_create += next_table_for_create["m2m_tables"]
 
-        schema_creation_string = "\n".join(ordered_tables_for_create + m2m_tables_to_create)
-        return schema_creation_string
+        return "\n".join(ordered_tables_for_create + m2m_tables_to_create)
 
     async def generate_from_string(self, creation_string: str) -> None:
         await self.client.execute_script(creation_string)

@@ -81,11 +81,11 @@ def escape_float(value: float, mapping=None) -> str:
 
 
 def escape_unicode(value: str, mapping=None) -> str:
-    return "'%s'" % _escape_unicode(value)
+    return f"'{_escape_unicode(value)}'"
 
 
 def escape_str(value: str, mapping=None) -> str:
-    return "'%s'" % escape_string(str(value), mapping)
+    return f"'{escape_string(value, mapping)}'"
 
 
 def escape_None(value: None, mapping=None) -> str:

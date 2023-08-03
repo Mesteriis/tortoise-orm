@@ -29,9 +29,7 @@ class JSONExtract(PypikaFunction):  # type: ignore
 
     def make_query(self, query_list: List[Term]):
         query = ["$"]
-        for value in query_list:
-            query.append(self.serialize_value(value))
-
+        query.extend(self.serialize_value(value) for value in query_list)
         return "".join(query)
 
 
@@ -69,9 +67,7 @@ operator_keywords = {
 
 
 def _serialize_value(value: Any):
-    if type(value) in [dict, list]:
-        return json.dumps(value)
-    return value
+    return json.dumps(value) if type(value) in [dict, list] else value
 
 
 def mysql_json_filter(field: Term, value: Dict) -> Criterion:
